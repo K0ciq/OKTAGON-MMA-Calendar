@@ -1,7 +1,8 @@
 import datetime
 
-def format_ics_datetime(dt):
-    return dt.strftime("%Y%m%d")
+def format_ics_utc_datetime(dt):
+    # Formats datetime as YYYYMMDDTHHMMSSZ for iCal
+    return dt.strftime("%Y%m%dT%H%M%SZ")
 
 def build_calendar():
     # Official Oktagon MMA event schedule sourced directly from oktagonmma.com
@@ -79,25 +80,32 @@ def build_calendar():
         "VERSION:2.0",
         "PRODID:-//Oktagon MMA iCal Generator//EN",
         "X-WR-CALNAME:Oktagon MMA Events",
-        "X-WR-TIMEZONE:UTC",
+        "X-WR-TIMEZONE:Europe/Prague",
         "CALSCALE:GREGORIAN",
         "METHOD:PUBLISH"
     ]
 
     for event in events:
-        event_dt = datetime.datetime.strptime(event["date"], "%Y-%m-%d").date()
-        start_str = format_ics_datetime(event_dt)
-        end_str = format_ics_datetime(event_dt + datetime.timedelta(days=1))
+        # Base event date
+        event_date = datetime.datetime.strptime(event["date"], "%Y-%m-%d").date()
+        
+        # Start at 18:00 (18:00 local time = 16:00 UTC during Daylight Saving, 17:00 UTC standard time)
+        # Standardizing local 18:00 start / 23:00 end
+        start_dt = datetime.datetime.combine(event_date, datetime.time(18, 0, 0))
+        end_dt = datetime.datetime.combine(event_date, datetime.time(23, 0, 0))
+
+        start_str = format_ics_utc_datetime(start_dt)
+        end_str = format_ics_utc_datetime(end_dt)
         
         event_title = f"🥊 OKTAGON {event['num']}: {event['main_event']}"
-        uid = f"OKTAGON_{event['num']}_{start_str}@oktagonmma"
+        uid = f"OKTAGON_{event['num']}_{event['date']}@oktagonmma"
 
         ics_lines.extend([
             "BEGIN:VEVENT",
             f"UID:{uid}",
             f"SUMMARY:{event_title}",
-            f"DTSTART;VALUE=DATE:{start_str}",
-            f"DTEND;VALUE=DATE:{end_str}",
+            f"DTSTART:{start_str}",
+            f"DTEND:{end_str}",
             f"LOCATION:{event['location']}",
             f"DESCRIPTION:Main Event: {event['main_event']} ({event['location']})",
             "STATUS:CONFIRMED",
